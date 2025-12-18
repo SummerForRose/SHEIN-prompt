@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片上传API测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .success {
+            border-left: 4px solid #28a745;
+        }
+        
+        .error {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .preview img {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        
+        .api-status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status-online {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 图片上传API测试工具</h1>
+    
+    <!-- API状态检查 -->
+    <div class="test-section">
+        <h2>📡 API状态检查</h2>
+        <button class="btn" onclick="checkApiStatus()">检查API状态</button>
+        <div id="apiStatus"></div>
+    </div>
+    
+    <!-- 文件选择 -->
+    <div class="test-section">
+        <h2>📁 选择测试文件</h2>
+        <input type="file" id="fileInput" accept="image/*" multiple onchange="previewFiles()">
+        <div id="filePreview" class="preview"></div>
+    </div>
+    
+    <!-- 单文件上传测试 -->
+    <div class="test-section">
+        <h2>📤 单文件上传测试</h2>
+        <button class="btn" onclick="testSingleUpload()" disabled id="singleUploadBtn">
+            测试单文件上传
+        </button>
+        <div id="singleUploadResult" class="result"></div>
+    </div>
+    
+    <!-- 多文件上传测试 -->
+    <div class="test-section">
+        <h2>📤 多文件上传测试</h2>
+        <button class="btn" onclick="testMultipleUpload()" disabled id="multipleUploadBtn">
+            测试多文件上传
+        </button>
+        <div id="multipleUploadResult" class="result"></div>
+    </div>
+    
+    <!-- Base64上传测试 -->
+    <div class="test-section">
+        <h2>🔤 Base64上传测试</h2>
+        <button class="btn" onclick="testBase64Upload()" disabled id="base64UploadBtn">
+            测试Base64上传
+        </button>
+        <div id="base64UploadResult" class="result"></div>
+    </div>
+    
+    <!-- 文件列表测试 -->
+    <div class="test-section">
+        <h2>📋 文件列表测试</h2>
+        <button class="btn" onclick="testGetFiles()">
+            获取文件列表
+        </button>
+        <div id="fileListResult" class="result"></div>
+    </div>
+    
+    <!-- 云存储测试 -->
+    <div class="test-section">
+        <h2>☁️ 云存储上传测试</h2>
+        <button class="btn" onclick="testCloudUpload('alioss')" disabled id="aliossBtn">
+            测试阿里云OSS
+        </button>
+        <button class="btn" onclick="testCloudUpload('tencentcos')" disabled id="tencentBtn">
+            测试腾讯云COS
+        </button>
+        <button class="btn" onclick="testCloudUpload('awss3')" disabled id="awsBtn">
+            测试AWS S3
+        </button>
+        <div id="cloudUploadResult" class="result"></div>
+    </div>
+    
+    <!-- 性能测试 -->
+    <div class="test-section">
+        <h2>⚡ 性能测试</h2>
+        <button class="btn" onclick="testPerformance()" disabled id="performanceBtn">
+            开始性能测试
+        </button>
+        <div id="performanceResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let selectedFiles = [];
+        
+        // 检查API状态
+        async function checkApiStatus() {
+            const statusDiv = document.getElementById('apiStatus');
+            
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = `
+                        <div class="api-status status-online">
+                            ✅ API在线 - 运行时间: ${Math.floor(result.uptime)}秒
+                        </div>
+                    `;
+                } else {
+                    throw new Error('API响应异常');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="api-status status-offline">
+                        ❌ API离线 - ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 预览选择的文件
+        function previewFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const preview = document.getElementById('filePreview');
+            
+            selectedFiles = Array.from(fileInput.files);
+            preview.innerHTML = '';
+            
+            if (selectedFiles.length === 0) {
+                disableUploadButtons();
+                return;
+            }
+            
+            selectedFiles.forEach((file, index) => {
+                const img = document.createElement('img');
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                    img.title = `${file.name} (${formatFileSize(file.size)})`;
+                };
+                reader.readAsDataURL(file);
+                
+                preview.appendChild(img);
+            });
+            
+            enableUploadButtons();
+        }
+        
+        // 启用上传按钮
+        function enableUploadButtons() {
+            document.getElementById('singleUploadBtn').disabled = false;
+            document.getElementById('multipleUploadBtn').disabled = false;
+            document.getElementById('base64UploadBtn').disabled = false;
+            document.getElementById('aliossBtn').disabled = false;
+            document.getElementById('tencentBtn').disabled = false;
+            document.getElementById('awsBtn').disabled = false;
+            document.getElementById('performanceBtn').disabled = false;
+        }
+        
+        // 禁用上传按钮
+        function disableUploadButtons() {
+            document.getElementById('singleUploadBtn').disabled = true;
+            document.getElementById('multipleUploadBtn').disabled = true;
+            document.getElementById('base64UploadBtn').disabled = true;
+            document.getElementById('aliossBtn').disabled = true;
+            document.getElementById('tencentBtn').disabled = true;
+            document.getElementById('awsBtn').disabled = true;
+            document.getElementById('performanceBtn').disabled = true;
+        }
+        
+        // 测试单文件上传
+        async function testSingleUpload() {
+            if (selectedFiles.length === 0) return;
+            
+            const resultDiv = document.getElementById('singleUploadResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '上传中...';
+            
+            const formData = new FormData();
+            formData.append('image', selectedFiles[0]);
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_BASE}/upload/single`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const endTime = Date.now();
+                
+                const result = await response.json();
+                
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify({
+                    ...result,
+                    uploadTime: `${endTime - startTime}ms`
+                }, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 测试多文件上传
+        async function testMultipleUpload() {
+            if (selectedFiles.length === 0) return;
+            
+            const resultDiv = document.getElementById('multipleUploadResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '上传中...';
+            
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('images', file);
+            });
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_BASE}/upload/multiple`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const endTime = Date.now();
+                
+                const result = await response.json();
+                
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify({
+                    ...result,
+                    uploadTime: `${endTime - startTime}ms`
+                }, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 测试Base64上传
+        async function testBase64Upload() {
+            if (selectedFiles.length === 0) return;
+            
+            const resultDiv = document.getElementById('base64UploadResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '转换并上传中...';
+            
+            const file = selectedFiles[0];
+            
+            try {
+                // 转换为Base64
+                const base64 = await fileToBase64(file);
+                
+                const startTime = Date.now();
+                const response = await fetch(`${API_BASE}/upload/base64`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: base64,
+                        filename: file.name
+                    })
+                });
+                const endTime = Date.now();
+                
+                const result = await response.json();
+                
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify({
+                    ...result,
+                    uploadTime: `${endTime - startTime}ms`,
+                    base64Size: base64.length
+                }, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 测试云存储上传
+        async function testCloudUpload(provider) {
+            if (selectedFiles.length === 0) return;
+            
+            const resultDiv = document.getElementById('cloudUploadResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = `正在上传到 ${provider}...`;
+            
+            const formData = new FormData();
+            formData.append('image', selectedFiles[0]);
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_BASE}/cloud-upload/${provider}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const endTime = Date.now();
+                
+                const result = await response.json();
+                
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify({
+                    ...result,
+                    uploadTime: `${endTime - startTime}ms`,
+                    provider: provider
+                }, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 获取文件列表
+        async function testGetFiles() {
+            const resultDiv = document.getElementById('fileListResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '获取中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/files`);
+                const result = await response.json();
+                
+                resultDiv.className = result.success ? 'result success' : 'result error';
+                resultDiv.textContent = JSON.stringify(result, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 性能测试
+        async function testPerformance() {
+            if (selectedFiles.length === 0) return;
+            
+            const resultDiv = document.getElementById('performanceResult');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '性能测试中...';
+            
+            const file = selectedFiles[0];
+            const testCount = 5; // 测试次数
+            const results = [];
+            
+            try {
+                // 单文件上传性能测试
+                for (let i = 0; i < testCount; i++) {
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    
+                    const startTime = Date.now();
+                    const response = await fetch(`${API_BASE}/upload/single`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const endTime = Date.now();
+                    
+                    const result = await response.json();
+                    results.push({
+                        test: i + 1,
+                        success: result.success,
+                        time: endTime - startTime,
+                        size: file.size
+                    });
+                    
+                    resultDiv.textContent = `性能测试进度: ${i + 1}/${testCount}`;
+                }
+                
+                // 计算统计信息
+                const successCount = results.filter(r => r.success).length;
+                const times = results.filter(r => r.success).map(r => r.time);
+                const avgTime = times.reduce((a, b) => a + b, 0) / times.length;
+                const minTime = Math.min(...times);
+                const maxTime = Math.max(...times);
+                
+                const performanceReport = {
+                    totalTests: testCount,
+                    successCount: successCount,
+                    successRate: `${(successCount / testCount * 100).toFixed(2)}%`,
+                    averageTime: `${avgTime.toFixed(2)}ms`,
+                    minTime: `${minTime}ms`,
+                    maxTime: `${maxTime}ms`,
+                    fileSize: formatFileSize(file.size),
+                    throughput: `${(file.size / avgTime * 1000 / 1024).toFixed(2)} KB/s`,
+                    results: results
+                };
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = JSON.stringify(performanceReport, null, 2);
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `性能测试失败: ${error.message}`;
+            }
+        }
+        
+        // 工具函数：文件转Base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        // 工具函数：格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 页面加载时检查API状态
+        window.onload = function() {
+            checkApiStatus();
+        };
+    </script>
+</body>
+</html>
